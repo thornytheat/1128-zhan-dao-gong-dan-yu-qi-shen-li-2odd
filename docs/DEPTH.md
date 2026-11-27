@@ -14,6 +14,7 @@ AI/ML / 传统ML · 市政占道工单逾期预测与许可复核排班
 | M4 | 超期概率 | 逻辑回归处理少数超期，冻结缩放，用独立留出桶保序校准并检查异常工况 | `src/permitdesk/deadline_classifier/classifier.py` `src/permitdesk/deadline_classifier/contracts.py` `src/permitdesk/deadline_classifier/service.py` | `tests/test_deadline_classifier.py` |
 | M5 | 审理编组 | 按应急和法定剩余时间排队，强制辖区、资质、班内时段及大占道双签审 | `src/permitdesk/review_roster/staffing.py` `src/permitdesk/review_roster/contracts.py` `src/permitdesk/review_roster/service.py` | `tests/test_review_roster.py` |
 | M6 | 许可追溯 | 工单回执事后计算分组 AP、Brier 和空桶，验证双签证据和依赖版本摘要 | `src/permitdesk/permit_journal/ledger.py` `src/permitdesk/permit_journal/contracts.py` `src/permitdesk/permit_journal/service.py` | `tests/test_permit_journal.py` |
+| M7 | 开工放行 | 按复核办结、法定时限和材料裁决放行、条件放行或延期，凭据按批次指纹去重且只增不减 | `src/permitdesk/start_clearance/adjudicate.py` `src/permitdesk/start_clearance/journal.py` `src/permitdesk/start_clearance/service.py` `src/permitdesk/start_clearance/contracts.py` | `tests/test_start_clearance.py` |
 
 ## 边界案例
 
@@ -30,3 +31,5 @@ AI/ML / 传统ML · 市政占道工单逾期预测与许可复核排班
 | TRAP-44 | 未校准置信度排先后 | 把分类分数当真实概率 | 区间保序校准和分布外拦截 | `src/permitdesk/deadline_classifier/classifier.py` | `tests/test_deadline_classifier.py::test_isotonic_calibration_pooling` |
 | TRAP-53 | 混长短工单改变概率 | 依赖当前推断批统计 | 冻结训练归一化 | `src/permitdesk/deadline_classifier/classifier.py` | `tests/test_deadline_classifier.py::test_inference_is_independent_of_batch` |
 | TRAP-54 | 模型或日历变化 | 沿用老签审凭证 | 依赖签名重新生成 | `src/permitdesk/permit_journal/ledger.py` | `tests/test_permit_journal.py::test_source_model_and_calendar_invalidate_receipt` |
+| TRAP-57 | 同一批计划重跑 | 重复签发放行或延期凭据 | 批次指纹加单号定凭据，已留存原样跳过 | `src/permitdesk/start_clearance/journal.py` | `tests/test_start_clearance.py::test_same_batch_rerun_never_duplicates_credentials` |
+| TRAP-61 | 逾期或缺件工单申请放行 | 借放行覆盖原结论 | 延期或条件放行并保留原结论与后续凭据 | `src/permitdesk/start_clearance/adjudicate.py` | `tests/test_start_clearance.py::test_overdue_cannot_bypass_original_conclusion` |

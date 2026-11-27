@@ -8,7 +8,7 @@
 docker compose up --build -d
 ```
 
-打开 `http://127.0.0.1:18207/` 查看占道许可台账。左侧六个入口可展开运行证据。调整「复核名额（单）」，点击「重新排班」比较处置结果。结束后执行 `docker compose down --remove-orphans`。
+打开 `http://127.0.0.1:18207/` 查看占道许可台账。左侧七个入口可展开运行证据。调整「复核名额（单）」，点击「重新排班」比较处置结果。台账末两列给出开工放行结论与凭据号，「开工放行」入口展示整版放行与延期清单。结束后执行 `docker compose down --remove-orphans`。
 
 ## 独立业务模块
 
@@ -18,6 +18,7 @@ docker compose up --build -d
 - 超期概率 `deadline_classifier`
 - 审理编组 `review_roster`
 - 许可追溯 `permit_journal`
+- 开工放行 `start_clearance`
 
 ## 查看运行结果
 
@@ -29,5 +30,7 @@ docker compose up --build -d
 docker compose exec -T app python -m permitdesk.delivery evaluate --capacity 3
 docker compose exec -T app pytest -q
 ```
+
+放行与延期凭据库落盘在 `var/clearance_journal.json`（可用 `PERMITDESK_JOURNAL` 改路径），同一批计划重跑不重复签发；`evaluate` 默认一次性评估不落盘，加 `--journal 路径` 可复用凭据库。
 
 数据和模型约定见 [业务契约](docs/SPEC.md)。模块、例外规则与验证入口见 [业务深度](docs/DEPTH.md)。

@@ -1,4 +1,31 @@
+import json
+
+import pytest
+
 from permitdesk.delivery import MODULES, application
+import permitdesk.delivery as delivery
+
+
+@pytest.fixture(autouse=True)
+def isolated_journal(tmp_path, monkeypatch):
+    monkeypatch.setattr(delivery, "JOURNAL_PATH", tmp_path / "clearance.json")
+    monkeypatch.setattr(delivery, "_journal", None)
+    monkeypatch.setattr(delivery, "_initial_snapshot", None)
+    return tmp_path / "clearance.json"
+
+
+def test_clearance_journal_persists_and_never_duplicates(isolated_journal):
+    client = application.test_client()
+    first = client.post("/api/scenario", json={"capacity": 8}).get_json()
+    second = client.post("/api/scenario", json={"capacity": 8}).get_json()
+    assert first == second
+    stage = first["stages"][MODULES.index(("start_clearance", "开工放行"))]
+    summary, rows = stage["records"][0], stage["records"][1:]
+    assert summary["本批凭据"] == len(rows) == summary["库内凭据"]
+    assert len({row["credential"] for row in rows}) == len(rows)
+    stored = json.loads(isolated_journal.read_text(encoding="utf-8"))
+    assert len(stored["credentials"]) == len(rows) and len(stored["batches"]) == 1
+    assert {row["credential"] for row in rows} == set(stored["credentials"])
 
 
 def test_real_overview_returns_operational_evidence():

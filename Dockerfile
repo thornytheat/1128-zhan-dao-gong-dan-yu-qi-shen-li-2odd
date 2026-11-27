@@ -4,6 +4,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir --disable-pip-version-check -r requirements.txt
 RUN useradd --system --no-create-home appuser
+RUN install -d -o appuser /app/var
 COPY . .
 USER appuser
 EXPOSE 8000

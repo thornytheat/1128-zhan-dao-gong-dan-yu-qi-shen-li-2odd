@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 from hashlib import sha256
 from pathlib import Path
@@ -11,18 +12,32 @@ from flask import Flask, jsonify, render_template, request
 from werkzeug.exceptions import BadRequest, RequestEntityTooLarge, UnsupportedMediaType
 
 from .pipeline import run
+from .start_clearance.journal import ClearanceJournal
 
-MODULES = (('permit_intake', '许可流转'), ('calendar_intervals', '日历折算'), ('review_features', '审理特征'), ('deadline_classifier', '超期概率'), ('review_roster', '审理编组'), ('permit_journal', '许可追溯'))
+MODULES = (('permit_intake', '许可流转'), ('calendar_intervals', '日历折算'), ('review_features', '审理特征'), ('deadline_classifier', '超期概率'), ('review_roster', '审理编组'), ('permit_journal', '许可追溯'), ('start_clearance', '开工放行'))
 application = Flask(__name__, static_folder="web/static", template_folder="web/templates")
 application.config["MAX_CONTENT_LENGTH"] = 8192
 application.json.sort_keys = False
-application.json.sort_keys = False
+JOURNAL_PATH = Path(os.environ.get("PERMITDESK_JOURNAL", "var/clearance_journal.json"))
+_journal = None
+_journal_lock = Lock()
 _initial_snapshot = None
 _initial_lock = Lock()
 
 
-def snapshot(capacity=None):
-    business_result = run(capacity)
+def shared_journal():
+    global _journal
+    with _journal_lock:
+        if _journal is None:
+            _journal = ClearanceJournal.load(JOURNAL_PATH)
+        return _journal
+
+
+def snapshot(capacity=None, journal=None):
+    store = shared_journal() if journal is None else journal
+    with _journal_lock:
+        business_result = run(capacity, journal=store)
+        store.save()
     if len(business_result["stages"]) != len(MODULES):
         raise RuntimeError("运行证据缺少业务环节")
     content = json.dumps(business_result, ensure_ascii=False, allow_nan=False, sort_keys=True)
@@ -93,6 +108,7 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     evaluate = commands.add_parser("evaluate", help="执行本地样例并输出业务证据")
     evaluate.add_argument("--capacity", type=int)
+    evaluate.add_argument("--journal", type=Path, help="放行凭据库路径，缺省为一次性评估不落盘")
     evaluate.add_argument("--output", type=Path)
     serve = commands.add_parser("serve", help="启动浏览服务")
     serve.add_argument("--port", type=int, default=8000)
@@ -106,7 +122,8 @@ def main():
         capacity = parse_capacity(args.capacity) if args.capacity is not None else None
     except ValueError as error:
         parser.error(str(error))
-    output = json.dumps(snapshot(capacity), ensure_ascii=False, indent=2, allow_nan=False)
+    journal = ClearanceJournal() if args.journal is None else ClearanceJournal.load(args.journal)
+    output = json.dumps(snapshot(capacity, journal=journal), ensure_ascii=False, indent=2, allow_nan=False)
     if args.output:
         args.output.write_text(output + "\n", encoding="utf-8")
     else:

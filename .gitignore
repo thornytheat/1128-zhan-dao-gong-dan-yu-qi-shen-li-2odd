@@ -33,3 +33,6 @@ venv/
 target/
 *.o
 *.obj
+
+# 放行凭据库本地落盘
+var/
